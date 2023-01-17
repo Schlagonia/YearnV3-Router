@@ -22,6 +22,7 @@ dependencies:
 solidity:
   import_remapping:
     - "@openzeppelin/contracts=openzeppelin/v4.7.3"
+    - "@yearn-vaults=yearn-vaults"
 
 
 ethereum:
