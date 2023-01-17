@@ -37,6 +37,7 @@ struct StrategyParams:
 
 name: public(String[64])
 governance: public(address)
+pending_governance: public(address)
 
 MAX_WITHDRAWAL_STACK_SIZE: constant(uint256) = 10
 
@@ -100,6 +101,19 @@ def replace_withdrawal_stack_index(vault: address, idx: uint256, new_strategy: a
 
 
 @external
+def set_governance(new_governance: address):
+    assert msg.sender == self.governance, "!auth"
+    self.pending_governance = new_governance
+
+
+@external
+def accept_governance():
+    assert msg.sender == self.pending_governance
+    self.governance = msg.sender
+    self.pending_governance = ZERO_ADDRESS
+
+
+@external
 def addStrategy(vault: address, strategy: address):
     assert msg.sender == self.governance, "!auth"
     self.add_strategy(vault, strategy)
@@ -134,6 +148,6 @@ def withdrawalStackLength(vault: address) -> uint256:
 @external
 def vaultWithrawalStack(vault: address) -> DynArray[address, 10]:
     """
-    Function to return the stored array of strategies for a given vault
+    Function to return the current withdrawal stack of strategies for a given vault
     """
     return self.withdrawal_stack[vault]
