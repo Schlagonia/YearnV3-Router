@@ -13,7 +13,7 @@
     },
     "scripts": {
         "format": "prettier --write 'contracts/**/*.(sol|json)' --verbose",
-        "format:check": "prettier --check 'contracts/**/*.*(sol|json)'",
+        "lint:check": "prettier --check 'contracts/**/*.*(sol|json)'",
         "lint": "solhint 'contracts/**/*.sol'"
     }
 }

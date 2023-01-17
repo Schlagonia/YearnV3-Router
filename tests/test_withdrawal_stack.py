@@ -1,6 +1,7 @@
 from ape import chain, project, reverts
 from utils.constants import ZERO_ADDRESS
 
+
 def test_add_strategy(create_vault_and_strategy, create_strategy, gov, amount):
     vault, strategy = create_vault_and_strategy(gov, amount)
     router = gov.deploy(project.Router, "YearnV3 Router 0.0.1")
@@ -29,7 +30,9 @@ def test_add_strategy__not_added_to_vault__fails(router, vault, create_strategy,
         router.addStrategy(vault, strategy, sender=gov)
 
 
-def test_add_strategy__not_gov__fails(router, create_vault_and_strategy, gov, user, amount):
+def test_add_strategy__not_gov__fails(
+    router, create_vault_and_strategy, gov, user, amount
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
 
     with reverts("!auth"):
@@ -51,7 +54,10 @@ def test_add_strategy__stack_full__fails(router, vault, create_strategy, gov, am
     with reverts("stack full"):
         router.addStrategy(vault, strategy, sender=gov)
 
-def test_remove_strategy(router, create_vault_and_strategy, create_strategy, gov, amount):
+
+def test_remove_strategy(
+    router, create_vault_and_strategy, create_strategy, gov, amount
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     router.addStrategy(vault, strategy, sender=gov)
 
@@ -62,7 +68,10 @@ def test_remove_strategy(router, create_vault_and_strategy, create_strategy, gov
 
     assert router.withdrawalStackLength(vault) == 0
 
-def test_remove_strategy__multiple_strategies(router, create_vault_and_strategy, create_strategy, gov, amount):
+
+def test_remove_strategy__multiple_strategies(
+    router, create_vault_and_strategy, create_strategy, gov, amount
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     router.addStrategy(vault, strategy, sender=gov)
 
@@ -99,7 +108,9 @@ def test_remove_strategy__multiple_strategies(router, create_vault_and_strategy,
     assert router.withdrawalStackLength(vault) == 0
 
 
-def test_remove_strategy__not_gov__fails(router, create_vault_and_strategy, create_strategy, gov, amount, user):
+def test_remove_strategy__not_gov__fails(
+    router, create_vault_and_strategy, create_strategy, gov, amount, user
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     router.addStrategy(vault, strategy, sender=gov)
 
@@ -112,7 +123,9 @@ def test_remove_strategy__not_gov__fails(router, create_vault_and_strategy, crea
     assert router.withdrawalStackLength(vault) == 1
 
 
-def test_remove_strategy__not_added__fails(router, create_vault_and_strategy, create_strategy, gov, amount):
+def test_remove_strategy__not_added__fails(
+    router, create_vault_and_strategy, create_strategy, gov, amount
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
 
     with reverts():
@@ -128,7 +141,9 @@ def test_remove_strategy__not_added__fails(router, create_vault_and_strategy, cr
         router.removeStrategy(vault, second_strategy, sender=gov)
 
 
-def test_strategies_array_length(router, create_vault_and_strategy, create_strategy, gov, amount):
+def test_strategies_array_length(
+    router, create_vault_and_strategy, create_strategy, gov, amount
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     second_strategy = create_strategy(vault)
     vault.add_strategy(second_strategy, sender=gov)
@@ -158,7 +173,9 @@ def test_strategies_array_length(router, create_vault_and_strategy, create_strat
     assert router.withdrawalStackLength(vault) == 0
 
 
-def test_set_new_stack(router, create_vault_and_strategy, create_new_strategy, gov, amount):
+def test_set_new_stack(
+    router, create_vault_and_strategy, create_new_strategy, gov, amount
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     assert router.withdrawalStackLength(vault) == 0
 
@@ -178,9 +195,7 @@ def test_set_new_stack(router, create_vault_and_strategy, create_new_strategy, g
     fourth_strategy = create_new_strategy(vault)
 
     router.setWithdrawalStack(
-        vault,
-        [strategy, second_strategy, third_strategy, fourth_strategy],
-        sender=gov
+        vault, [strategy, second_strategy, third_strategy, fourth_strategy], sender=gov
     )
 
     assert router.withdrawalStackLength(vault) == 4
@@ -189,15 +204,14 @@ def test_set_new_stack(router, create_vault_and_strategy, create_new_strategy, g
     assert router.vaultWithrawalStack(vault)[2] == third_strategy
     assert router.vaultWithrawalStack(vault)[3] == fourth_strategy
 
-    router.setWithdrawalStack(
-        vault,
-        [],
-        sender=gov
-    )
+    router.setWithdrawalStack(vault, [], sender=gov)
 
     assert router.withdrawalStackLength(vault) == 0
 
-def test_set_new_stack__not_gov__fails(router, create_vault_and_strategy, create_new_strategy, gov, amount, user):
+
+def test_set_new_stack__not_gov__fails(
+    router, create_vault_and_strategy, create_new_strategy, gov, amount, user
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     assert router.withdrawalStackLength(vault) == 0
 
@@ -212,10 +226,12 @@ def test_set_new_stack__not_gov__fails(router, create_vault_and_strategy, create
         router.setWithdrawalStack(vault, [second_strategy], sender=user)
 
 
-def test_set_new_stack__more_than_max__fails(router, create_vault_and_strategy, create_new_strategy, gov, amount):
+def test_set_new_stack__more_than_max__fails(
+    router, create_vault_and_strategy, create_new_strategy, gov, amount
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     assert router.withdrawalStackLength(vault) == 0
-    
+
     router.addStrategy(vault, strategy, sender=gov)
 
     assert router.withdrawalStackLength(vault) == 1
@@ -229,7 +245,15 @@ def test_set_new_stack__more_than_max__fails(router, create_vault_and_strategy, 
     with reverts():
         router.setWithdrawalStack(vault, bad_stack, sender=gov)
 
-def test_replace_index(router, create_vault_and_strategy, add_strategy_to_router, create_new_strategy, gov, amount):
+
+def test_replace_index(
+    router,
+    create_vault_and_strategy,
+    add_strategy_to_router,
+    create_new_strategy,
+    gov,
+    amount,
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     assert router.withdrawalStackLength(vault) == 0
 
@@ -259,7 +283,15 @@ def test_replace_index(router, create_vault_and_strategy, add_strategy_to_router
     assert router.vaultWithrawalStack(vault)[4] == new_strategy
 
 
-def test_replace_index__not_gov__fails(router, create_vault_and_strategy, add_strategy_to_router, create_new_strategy, gov, amount, user):
+def test_replace_index__not_gov__fails(
+    router,
+    create_vault_and_strategy,
+    add_strategy_to_router,
+    create_new_strategy,
+    gov,
+    amount,
+    user,
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     assert router.withdrawalStackLength(vault) == 0
 
@@ -280,12 +312,14 @@ def test_replace_index__not_gov__fails(router, create_vault_and_strategy, add_st
     assert router.withdrawalStackLength(vault) == 10
 
     new_strategy = create_new_strategy(vault)
-    
+
     with reverts("!auth"):
         router.replaceWithdrawalStackIndex(vault, 4, new_strategy, sender=user)
 
 
-def test_replace_index__same_strategy__fails(router, create_vault_and_strategy, add_strategy_to_router, gov, amount, user):
+def test_replace_index__same_strategy__fails(
+    router, create_vault_and_strategy, add_strategy_to_router, gov, amount, user
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     assert router.withdrawalStackLength(vault) == 0
 
@@ -298,7 +332,15 @@ def test_replace_index__same_strategy__fails(router, create_vault_and_strategy, 
         router.replaceWithdrawalStackIndex(vault, 0, strategy, sender=gov)
 
 
-def test_replace_index__inactive_strategy__fails(router, create_vault_and_strategy, add_strategy_to_router, create_strategy, gov, amount, user):
+def test_replace_index__inactive_strategy__fails(
+    router,
+    create_vault_and_strategy,
+    add_strategy_to_router,
+    create_strategy,
+    gov,
+    amount,
+    user,
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     assert router.withdrawalStackLength(vault) == 0
 
@@ -313,7 +355,15 @@ def test_replace_index__inactive_strategy__fails(router, create_vault_and_strate
         router.replaceWithdrawalStackIndex(vault, 0, second_strategy, sender=gov)
 
 
-def test_replace_index__invalid_index__fails(router, create_vault_and_strategy, add_strategy_to_router, create_new_strategy, gov, amount, user):
+def test_replace_index__invalid_index__fails(
+    router,
+    create_vault_and_strategy,
+    add_strategy_to_router,
+    create_new_strategy,
+    gov,
+    amount,
+    user,
+):
     vault, strategy = create_vault_and_strategy(gov, amount)
     assert router.withdrawalStackLength(vault) == 0
 

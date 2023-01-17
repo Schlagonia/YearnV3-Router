@@ -14,6 +14,12 @@ interface IVault:
     def convertToShares(assets: uint256) -> (uint256): view
     def strategies(strategy: address) -> StrategyParams: view
 
+event UpdateGovernance:
+    governance: address
+
+event NewPendingGovernance:
+    pending_governance: indexed(address)
+
 event StrategyAdded:
     vault: indexed(address)
     strategy: indexed(address)
@@ -50,10 +56,10 @@ def __init__(name: String[64]):
 
 
 @internal
-def add_strategy(vault: address, strategy: address):
+def _add_strategy(vault: address, strategy: address):
     # we assume the vault has checked what needs to be
     assert IVault(vault).strategies(strategy).activation != 0, "inactive strategy"
-
+    
     # make sure we have room left
     assert len(self.withdrawal_stack[vault]) < MAX_WITHDRAWAL_STACK_SIZE, "stack full"
 
@@ -64,7 +70,7 @@ def add_strategy(vault: address, strategy: address):
 
 
 @internal
-def remove_strategy(vault: address, strategy: address):
+def _remove_strategy(vault: address, strategy: address):
     """
     Internal function used to remove a strategy from the withdrawal stack for a specific vault.
     Iterates throuhg the withdrawal stack until it finds the strategy, then replaces it with the last strategy
@@ -82,6 +88,7 @@ def remove_strategy(vault: address, strategy: address):
             
             # remove the last one off the stack
             current_strategies.pop()
+            # store the updated stack
             self.withdrawal_stack[vault] = current_strategies
 
             log StrategyRemoved(vault, strategy)
@@ -89,7 +96,7 @@ def remove_strategy(vault: address, strategy: address):
     
 
 @internal
-def replace_withdrawal_stack_index(vault: address, idx: uint256, new_strategy: address):
+def _replace_withdrawal_stack_index(vault: address, idx: uint256, new_strategy: address):
     assert IVault(vault).strategies(new_strategy).activation != 0, "inactive strategy"
 
     old_strategy: address = self.withdrawal_stack[vault][idx]
@@ -103,26 +110,28 @@ def replace_withdrawal_stack_index(vault: address, idx: uint256, new_strategy: a
 @external
 def set_governance(new_governance: address):
     assert msg.sender == self.governance, "!auth"
+    log NewPendingGovernance(new_governance)
     self.pending_governance = new_governance
 
 
 @external
 def accept_governance():
-    assert msg.sender == self.pending_governance
+    assert msg.sender == self.pending_governance, "!auth"
     self.governance = msg.sender
+    log UpdateGovernance(msg.sender)
     self.pending_governance = ZERO_ADDRESS
 
 
 @external
 def addStrategy(vault: address, strategy: address):
     assert msg.sender == self.governance, "!auth"
-    self.add_strategy(vault, strategy)
+    self._add_strategy(vault, strategy)
 
 
 @external
 def removeStrategy(vault: address, strategy: address):
     assert msg.sender == self.governance, "!auth"
-    self.remove_strategy(vault, strategy)
+    self._remove_strategy(vault, strategy)
 
 
 @external 
@@ -135,7 +144,7 @@ def setWithdrawalStack(vault: address, stack: DynArray[address, MAX_WITHDRAWAL_S
 @external 
 def replaceWithdrawalStackIndex(vault: address, idx: uint256, new_strategy: address):
     assert msg.sender == self.governance, "!auth"
-    self.replace_withdrawal_stack_index(vault, idx, new_strategy)
+    self._replace_withdrawal_stack_index(vault, idx, new_strategy)
 
 
 @view

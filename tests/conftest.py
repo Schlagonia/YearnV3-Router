@@ -44,13 +44,18 @@ def atoken():
 @pytest.fixture(scope="session")
 def create_vault(project, gov):
     def create_vault(
-            asset,
-            governance=gov,
-            deposit_limit=MAX_INT,
-            max_profit_locking_time=WEEK,
+        asset,
+        governance=gov,
+        deposit_limit=MAX_INT,
+        max_profit_locking_time=WEEK,
     ):
         vault = gov.deploy(
-            project.dependencies["yearn-vaults"]["master"].VaultV3, asset, "VaultV3", "AV", governance, max_profit_locking_time
+            project.dependencies["yearn-vaults"]["master"].VaultV3,
+            asset,
+            "VaultV3",
+            "AV",
+            governance,
+            max_profit_locking_time,
         )
         # set up fee manager
         # vault.set_fee_manager(fee_manager.address, sender=gov)\
@@ -78,9 +83,7 @@ def vault(gov, asset, create_vault):
 @pytest.fixture
 def create_strategy(project, strategist):
     def create_strategy(vault):
-        strategy = strategist.deploy(
-            project.MockStrategy, vault.address, vault.asset()
-        )
+        strategy = strategist.deploy(project.MockStrategy, vault.address, vault.asset())
         return strategy
 
     yield create_strategy
@@ -101,6 +104,7 @@ def create_vault_and_strategy(strategy, vault, deposit_into_vault):
 
     yield create_vault_and_strategy
 
+
 @pytest.fixture(scope="function")
 def create_new_strategy(create_strategy, gov):
     def create_new_strategy(vault, governance=gov):
@@ -116,7 +120,7 @@ def create_router(project, gov):
     def create_router(name="YearnV3 Router 0.0.1"):
         router = gov.deploy(project.Router, name)
         return router
-    
+
     yield create_router
 
 
@@ -127,17 +131,12 @@ def router(create_router):
 
 @pytest.fixture(scope="function")
 def add_strategy_to_router(create_new_strategy, gov):
-    def add_strategy_to_router(
-        router,
-        vault,
-        strategy=ZERO_ADDRESS,
-        governance=gov
-    ):
+    def add_strategy_to_router(router, vault, strategy=ZERO_ADDRESS, governance=gov):
         if strategy == ZERO_ADDRESS:
             strategy = create_new_strategy(vault, governance)
-        
+
         router.addStrategy(vault, strategy, sender=governance)
-    
+
     yield add_strategy_to_router
 
 
@@ -170,7 +169,10 @@ def user_interaction(strategy, vault, deposit_into_vault):
         awhale = "0x13873fa4B7771F3492825B00D1c37301fF41C348"
         lp = Contract("0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9")
         lp.withdraw(
-            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", int(10 ** 6), awhale, sender=accounts[awhale]
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            int(10**6),
+            awhale,
+            sender=accounts[awhale],
         )
 
     yield user_interaction
