@@ -1,5 +1,7 @@
 # @version 0.3.7
 
+from vyper.interfaces import ERC20
+
 interface IVault:
     def asset() -> address: view
     def balanceOf(owner: address) -> uint256: view
@@ -53,6 +55,176 @@ withdrawal_stack: HashMap[address, DynArray[address, 10]]
 def __init__(name: String[64]):
     self.name = name
     self.governance = msg.sender
+
+
+@internal
+def _mint(vault: IVault, to: address, shares: uint256, max_amount_in: uint256) -> uint256:
+    self._check_allowance(vault.asset(), vault.address, max_amount_in)
+    amount_in: uint256 = vault.mint(shares, to)
+    assert amount_in <= max_amount_in, "!max amount"
+    return amount_in
+
+
+@internal
+def _deposit(vault: IVault, to: address, amount: uint256, min_shares_out: uint256) -> uint256:
+    self._check_allowance(vault.asset(), vault.address, amount)
+    shares_out: uint256 = vault.deposit(amount, to)
+    assert shares_out >= min_shares_out, "!min shares"
+    return shares_out
+
+
+@internal
+def _withdraw(vault: IVault, to: address, amount: uint256, max_shares_in: uint256) -> uint256:
+    shares_in: uint256 = vault.withdraw(amount, to, msg.sender, self.withdrawal_stack[vault.address])
+    assert shares_in <= max_shares_in, "!max shares"
+    return shares_in
+
+
+@internal 
+def _redeem(vault: IVault, to: address, shares: uint256, min_amount_out: uint256) -> uint256:
+    amount_out: uint256 = vault.redeem(shares, to, msg.sender, self.withdrawal_stack[vault.address])
+    assert amount_out >= min_amount_out, "!min out"
+    return amount_out
+
+
+@external
+def deposit(
+    vault: IVault,
+    amount: uint256 = max_value(uint256),
+    to: address = msg.sender,
+    min_shares_out: uint256 = 0
+) -> uint256:
+    """
+    External deposit function for any 4626 compliant vault.
+    Will pull the funds from sender and deposit into the vault with "to" as the recepient
+    """
+    asset: address = vault.asset()
+    to_deposit: uint256 = amount
+    if to_deposit == max_value(uint256):
+        to_deposit = ERC20(asset).balanceOf(msg.sender)
+
+    self._erc20_safe_transfer_from(asset, msg.sender, self, to_deposit)
+    return self._deposit(vault, to, to_deposit, min_shares_out)
+
+
+@external
+def mint(
+    vault: IVault,
+    shares: uint256 = max_value(uint256),
+    to: address = msg.sender,
+    max_amount_in: uint256 = 0
+) -> uint256:
+    """
+    External mint function for any 4626 compliant vault.
+    Will pull the funds from sender and deposit into the vault with "to" as the recepient
+    any excess funds pulled that were not needed should be swept back to sender 
+    """
+    asset: address = vault.asset()
+    to_mint: uint256 = shares
+    to_transfer: uint256 = max_amount_in
+    if to_mint == max_value(uint256):
+        to_transfer = ERC20(asset).balanceOf(msg.sender)
+        to_mint = vault.convertToShares(to_transfer)
+
+    if to_transfer == 0:
+        to_transfer = vault.convertToAssets(to_mint)
+
+    self._erc20_safe_transfer_from(asset, msg.sender, self, to_transfer)
+    # todo need to allow for sweeps or refund
+    return self._mint(vault, to, to_mint, to_transfer)
+
+
+@external
+def withdraw(
+    vault: IVault,
+    amount: uint256 = max_value(uint256),
+    to: address = msg.sender,
+    max_shares_in: uint256 = 0
+) -> uint256:
+    to_withdraw: uint256 = amount
+    to_burn: uint256 = max_shares_in
+    if to_withdraw == max_value(uint256):
+        to_burn =  vault.balanceOf(msg.sender)
+        to_withdraw = vault.convertToAssets(to_burn)
+
+    return self._withdraw(vault, to, to_withdraw, to_burn)
+
+
+@external
+def redeem(
+    vault: IVault,
+    shares: uint256 = max_value(uint256),
+    to: address = msg.sender,
+    min_amount_out: uint256 = 0
+) -> uint256:
+    to_redeem: uint256 = shares
+    if to_redeem == max_value(uint256):
+        to_redeem = vault.balanceOf(msg.sender)
+
+    return self._redeem(vault, to, to_redeem, min_amount_out)
+
+
+@internal
+def _check_allowance(token: address, contract: address, amount: uint256):
+    """
+    To be called before depositing into a vault to assure there is enough allowance for the deposit.
+    This should only have to be called once for each vault.
+    """
+    if ERC20(token).allowance(self, contract) < amount:
+        self._erc20_safe_approve(token, contract, 0)
+        self._erc20_safe_approve(token, contract, max_value(uint256))
+
+
+@internal
+def _erc20_safe_approve(token: address, spender: address, amount: uint256):
+    # Used only to send tokens that are not the type managed by this Vault.
+    # HACK: Used to handle non-compliant tokens like USDT
+    response: Bytes[32] = raw_call(
+        token,
+        concat(
+            method_id("approve(address,uint256)"),
+            convert(spender, bytes32),
+            convert(amount, bytes32),
+        ),
+        max_outsize=32,
+    )
+    if len(response) > 0:
+        assert convert(response, bool), "Transfer failed!"
+
+
+@internal
+def _erc20_safe_transfer_from(token: address, sender: address, receiver: address, amount: uint256):
+    # Used only to send tokens that are not the type managed by this Vault.
+    # HACK: Used to handle non-compliant tokens like USDT
+    response: Bytes[32] = raw_call(
+        token,
+        concat(
+            method_id("transferFrom(address,address,uint256)"),
+            convert(sender, bytes32),
+            convert(receiver, bytes32),
+            convert(amount, bytes32),
+        ),
+        max_outsize=32,
+    )
+    if len(response) > 0:
+        assert convert(response, bool), "Transfer failed!"
+
+
+@internal
+def _erc20_safe_transfer(token: address, receiver: address, amount: uint256):
+    # Used only to send tokens that are not the type managed by this Vault.
+    # HACK: Used to handle non-compliant tokens like USDT
+    response: Bytes[32] = raw_call(
+        token,
+        concat(
+            method_id("transfer(address,uint256)"),
+            convert(receiver, bytes32),
+            convert(amount, bytes32),
+        ),
+        max_outsize=32,
+    )
+    if len(response) > 0:
+        assert convert(response, bool), "Transfer failed!"
 
 
 @internal
